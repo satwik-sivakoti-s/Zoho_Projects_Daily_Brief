@@ -85,7 +85,82 @@ curl -H "Authorization: Bearer YOUR_CRON_SECRET" ^
   "http://127.0.0.1:8000/api/daily-brief?dry_run=true&include_preview=true"
 ```
 
-## 4. Vercel deploy
+## 4. Netlify deploy (recommended for your setup)
+
+This repo includes `netlify.toml`, a static `public/` site, and two functions:
+
+| Function | Purpose |
+|----------|---------|
+| `daily-brief-background` | **Scheduled** weekday run (~08:30 IST, `0 3 * * 1-5` UTC) — use for production |
+| `daily-brief` | **HTTP** manual trigger at `/api/daily-brief` and `/api/daily-brief/test` |
+
+Zoho can take 20–60+ seconds; the **background** function avoids Netlify’s short HTTP timeout.
+
+### One-time setup
+
+1. Install the Netlify CLI (optional but useful):
+
+```bash
+npm install -g netlify-cli
+netlify login
+```
+
+2. In [Netlify](https://app.netlify.com): **Add new site → Import an existing project** → connect `satwik-sivakoti-s/Zoho_Projects_Daily_Brief`.
+
+3. Build settings (usually auto-detected from `netlify.toml`):
+
+   - **Build command:** `pip install -r requirements.txt`
+   - **Publish directory:** `public`
+   - **Functions directory:** `netlify/functions`
+
+4. **Site configuration → Environment variables** — add every variable from `.env.example` (scope: **Functions** + **Build**). Required: Zoho OAuth vars, `FLOCK_WEBHOOK_URL`, `CRON_SECRET`.
+
+5. Deploy:
+
+```bash
+git push origin main
+```
+
+Or from your machine:
+
+```bash
+netlify init          # link local folder to the Netlify site (first time)
+netlify deploy --prod
+```
+
+### After deploy
+
+**Scheduled brief** (automatic): runs via `daily-brief-background` on the cron in `netlify.toml`. Check **Functions → daily-brief-background → Logs**.
+
+**Manual / test** (with auth):
+
+```bash
+curl -H "Authorization: Bearer YOUR_CRON_SECRET" \
+  https://YOUR-SITE.netlify.app/api/daily-brief
+
+curl -H "Authorization: Bearer YOUR_CRON_SECRET" \
+  "https://YOUR-SITE.netlify.app/api/daily-brief/test?include_preview=true"
+```
+
+Direct function URL (same auth):
+
+```bash
+curl -H "Authorization: Bearer YOUR_CRON_SECRET" \
+  https://YOUR-SITE.netlify.app/.netlify/functions/daily-brief
+```
+
+**Local Netlify dev:**
+
+```bash
+netlify dev
+# then call http://localhost:8888/api/daily-brief with Bearer header
+```
+
+> **Note:** Scheduled functions on Netlify require a plan that supports **Scheduled Functions** (included on free tier with limits). Background functions require a **credit-based** Netlify plan for long runs.
+
+---
+
+## 5. Vercel deploy (alternative)
 
 1. Push the repo and import it in Vercel.
 2. Framework: auto-detect Python (`app.py` + FastAPI).
@@ -110,17 +185,18 @@ curl -H "Authorization: Bearer YOUR_CRON_SECRET" \
 | `ZOHO_CLIENT_SECRET` | yes | OAuth client secret |
 | `ZOHO_REFRESH_TOKEN` | yes | Refresh token with Projects scopes |
 | `FLOCK_WEBHOOK_URL` | yes | Incoming webhook URL |
-| `CRON_SECRET` | yes (Vercel) | Bearer token; auto-sent by Vercel Cron |
+| `CRON_SECRET` | yes (prod) | Bearer token for manual `/api/daily-brief` calls |
 | `ZOHO_ACCOUNTS_DOMAIN` | no | Default `https://accounts.zoho.in` |
 | `ZOHO_PROJECTS_DOMAIN` | no | Default `https://projectsapi.zoho.in` |
 | `ZOHO_PORTAL_ID` | no | Auto-detected if empty |
-| `INCLUDE_COMPLETED` | no | Default `false` |
+| `SHOW_COMPLETED_IN_LIST` | no | Default `false` (counts still include completed) |
 | `DEADLINE_DATE_ORDER` | no | `DMY` (India) or `MDY` |
 | `BRIEF_TIMEZONE` | no | Default `Asia/Kolkata` |
 | `SKIP_WEEKENDS` | no | Default `true` |
 
 ## Notes
 
-- Open tasks only by default (`INCLUDE_COMPLETED=false`) to stay under Vercel’s 60s function limit.
+- Each run refreshes the OAuth token and calls Zoho with `status=all` so completed counts stay accurate.
+- By default, completed tasks appear in the summary only (`SHOW_COMPLETED_IN_LIST=false`); open/delayed tasks are listed under each task list.
 - Multi-owner tasks appear under each owner.
 - Prefer epoch deadline (`end_date_long`) from Zoho when available for accurate Delayed/On Track.

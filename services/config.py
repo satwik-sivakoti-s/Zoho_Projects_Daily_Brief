@@ -20,7 +20,7 @@ class Settings:
     zoho_portal_id: str | None
     flock_webhook_url: str
     cron_secret: str | None
-    include_completed: bool
+    show_completed_in_list: bool
     timezone_name: str
     deadline_date_order: str
     skip_weekends: bool
@@ -57,7 +57,7 @@ class Settings:
             zoho_portal_id=os.getenv("ZOHO_PORTAL_ID") or None,
             flock_webhook_url=os.environ["FLOCK_WEBHOOK_URL"],
             cron_secret=os.getenv("CRON_SECRET") or None,
-            include_completed=os.getenv("INCLUDE_COMPLETED", "false").lower()
+            show_completed_in_list=os.getenv("SHOW_COMPLETED_IN_LIST", "false").lower()
             in {"1", "true", "yes"},
             timezone_name=os.getenv("BRIEF_TIMEZONE", "Asia/Kolkata"),
             deadline_date_order=date_order,

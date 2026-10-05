@@ -15,8 +15,14 @@ def run_daily_brief(settings: Settings | None = None, *, dry_run: bool = False) 
     with ZohoProjectsClient(settings) as zoho:
         tasks = zoho.fetch_all_task_rows()
 
-    flockml = build_flockml(tasks, timezone_name=settings.timezone_name)
-    preview = build_plain_preview(tasks)
+    flockml = build_flockml(
+        tasks,
+        timezone_name=settings.timezone_name,
+        show_completed_in_list=settings.show_completed_in_list,
+    )
+    preview = build_plain_preview(
+        tasks, show_completed_in_list=settings.show_completed_in_list
+    )
 
     result: dict[str, Any] = {
         "task_count": len(tasks),

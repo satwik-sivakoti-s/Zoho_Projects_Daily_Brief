@@ -85,7 +85,11 @@ class ZohoProjectsClient:
         if not self._access_token:
             self.refresh_access_token()
         assert self._access_token is not None
-        return {"Authorization": f"Zoho-oauthtoken {self._access_token}"}
+        return {
+            "Authorization": f"Zoho-oauthtoken {self._access_token}",
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache",
+        }
 
     def _get(self, path: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
         url = f"{self.settings.zoho_projects_domain}{path}"
@@ -143,13 +147,11 @@ class ZohoProjectsClient:
         self,
         portal_id: str,
         project_id: str,
-        *,
-        include_completed: bool,
     ) -> list[dict[str, Any]]:
+        """Fetch all tasks (open + closed) so counts stay accurate on every run."""
         tasks: list[dict[str, Any]] = []
         index = 1
         page_size = 100
-        status = "all" if include_completed else "notcompleted"
 
         while True:
             payload = self._get(
@@ -158,8 +160,10 @@ class ZohoProjectsClient:
                     "index": index,
                     "range": page_size,
                     "owner": "all",
-                    "status": status,
+                    "status": "all",
                     "all_tasks": "true",
+                    "sort_column": "last_modified_time",
+                    "sort_order": "descending",
                 },
             )
             batch = payload.get("tasks") or []
@@ -177,16 +181,16 @@ class ZohoProjectsClient:
         if today is None:
             today = datetime.now(ZoneInfo(self.settings.timezone_name)).date()
 
+        # New access token on every trigger — no stale OAuth session.
+        self._access_token = None
+        self.refresh_access_token()
+
         portal_id = self.get_portal_id()
         project_ids = self.list_project_ids(portal_id)
 
         rows: list[TaskRow] = []
         for project_id in project_ids:
-            for task in self.list_tasks_for_project(
-                portal_id,
-                project_id,
-                include_completed=self.settings.include_completed,
-            ):
+            for task in self.list_tasks_for_project(portal_id, project_id):
                 rows.extend(self._task_to_rows(task, today))
 
         rows.sort(
@@ -254,12 +258,20 @@ class ZohoProjectsClient:
         status_obj = task.get("status") or {}
         status_type = str(status_obj.get("type") or "").lower()
         status_name = str(status_obj.get("name") or "").lower()
+        is_closed_type = bool(status_obj.get("is_closed_type"))
 
-        if completed or status_type in {"closed", "completed"} or status_name in {
-            "closed",
-            "completed",
-            "done",
-        }:
+        try:
+            percent = float(task.get("percent_complete") or 0)
+        except (TypeError, ValueError):
+            percent = 0.0
+
+        if (
+            completed
+            or is_closed_type
+            or percent >= 100
+            or status_type in {"closed", "completed"}
+            or status_name in {"closed", "completed", "done", "complete"}
+        ):
             return "Completed"
 
         deadline = self._deadline_date_from_task(task)

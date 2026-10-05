@@ -1,0 +1,25 @@
+[build]
+  command = "pip install -r requirements.txt"
+  publish = "public"
+  functions = "netlify/functions"
+
+[functions]
+  included_files = ["services/**", "requirements.txt"]
+
+[functions."daily-brief-background"]
+  schedule = "0 3 * * 1-5"
+
+[[redirects]]
+  from = "/api/daily-brief"
+  to = "/.netlify/functions/daily-brief"
+  status = 200
+
+[[redirects]]
+  from = "/api/daily-brief/test"
+  to = "/.netlify/functions/daily-brief"
+  status = 200
+
+[[redirects]]
+  from = "/"
+  to = "/index.html"
+  status = 200

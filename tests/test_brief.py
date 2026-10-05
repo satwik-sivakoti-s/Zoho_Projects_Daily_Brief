@@ -20,7 +20,7 @@ def _client() -> ZohoProjectsClient:
         zoho_portal_id="1",
         flock_webhook_url="https://example.com/hook",
         cron_secret="test-secret",
-        include_completed=False,
+        show_completed_in_list=False,
         timezone_name="Asia/Kolkata",
         deadline_date_order="DMY",
         skip_weekends=True,
@@ -106,3 +106,14 @@ def test_group_and_format() -> None:
     assert "\t• Greenonion changes · 2026-10-01 · Delayed" in preview
     assert "\t• Brand Context ingestion · 2026-10-02 · Delayed" in preview
     assert "\t• Write brief · 2026-10-06 · On Track" in preview
+
+
+def test_summary_includes_completed_when_hidden_from_list() -> None:
+    tasks = [
+        TaskRow("Alice", "Done task", "2026-09-01", "Completed", "App", "List A"),
+        TaskRow("Alice", "Open task", "2026-10-08", "On Track", "App", "List A"),
+    ]
+    preview = build_plain_preview(tasks, show_completed_in_list=False)
+    assert "Task - 2 · Delayed - 0 · Completed - 1" in preview
+    assert "Done task" not in preview
+    assert "Open task" in preview

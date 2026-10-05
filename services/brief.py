@@ -35,6 +35,12 @@ def _person_status_counts(tasks: list[TaskRow]) -> tuple[int, int, int]:
     return total, delayed, completed
 
 
+def _tasks_for_display(tasks: list[TaskRow], *, show_completed_in_list: bool) -> list[TaskRow]:
+    if show_completed_in_list:
+        return tasks
+    return [task for task in tasks if task.status != "Completed"]
+
+
 def _person_summary_line(tasks: list[TaskRow], *, html: bool) -> str:
     total, delayed, completed = _person_status_counts(tasks)
     if html:
@@ -61,7 +67,9 @@ def _task_detail_flockml(task: TaskRow) -> str:
     )
 
 
-def _render_person_hierarchy_plain(tasks: list[TaskRow]) -> str:
+def _render_person_hierarchy_plain(
+    tasks: list[TaskRow], *, show_completed_in_list: bool
+) -> str:
     """
     Satwik
     Task - n · Delayed - n · Completed - n
@@ -73,8 +81,11 @@ def _render_person_hierarchy_plain(tasks: list[TaskRow]) -> str:
         • task · deadline · status
     """
     lines: list[str] = []
-    by_list = group_tasks_by_tasklist(tasks)
+    visible = _tasks_for_display(tasks, show_completed_in_list=show_completed_in_list)
+    by_list = group_tasks_by_tasklist(visible)
     for tasklist_name, list_tasks in by_list.items():
+        if not list_tasks:
+            continue
         lines.append(tasklist_name)
         for task in list_tasks:
             lines.append(f"\t• {_task_detail_plain(task)}")
@@ -82,10 +93,15 @@ def _render_person_hierarchy_plain(tasks: list[TaskRow]) -> str:
     return "\n".join(lines).rstrip()
 
 
-def _render_person_hierarchy_flockml(tasks: list[TaskRow]) -> str:
+def _render_person_hierarchy_flockml(
+    tasks: list[TaskRow], *, show_completed_in_list: bool
+) -> str:
     parts: list[str] = []
-    by_list = group_tasks_by_tasklist(tasks)
+    visible = _tasks_for_display(tasks, show_completed_in_list=show_completed_in_list)
+    by_list = group_tasks_by_tasklist(visible)
     for tasklist_name, list_tasks in by_list.items():
+        if not list_tasks:
+            continue
         parts.append(f"<b>{escape(tasklist_name)}</b>")
         for task in list_tasks:
             # &emsp; ≈ tab indent under the task-list title
@@ -94,7 +110,12 @@ def _render_person_hierarchy_flockml(tasks: list[TaskRow]) -> str:
     return "<br/>".join(parts).rstrip()
 
 
-def build_flockml(tasks: list[TaskRow], *, timezone_name: str = "Asia/Kolkata") -> str:
+def build_flockml(
+    tasks: list[TaskRow],
+    *,
+    timezone_name: str = "Asia/Kolkata",
+    show_completed_in_list: bool = False,
+) -> str:
     now = datetime.now(ZoneInfo(timezone_name))
     date_label = now.strftime("%d %b %Y")
     grouped = group_tasks_by_person(tasks)
@@ -113,7 +134,11 @@ def build_flockml(tasks: list[TaskRow], *, timezone_name: str = "Asia/Kolkata") 
     for person, person_tasks in grouped.items():
         parts.append(f"<b>{escape(person)}</b>")
         parts.append(_person_summary_line(person_tasks, html=True))
-        parts.append(_render_person_hierarchy_flockml(person_tasks))
+        parts.append(
+            _render_person_hierarchy_flockml(
+                person_tasks, show_completed_in_list=show_completed_in_list
+            )
+        )
         parts.append("")
 
     inner = "<br/>".join(parts).rstrip()
@@ -161,13 +186,19 @@ def send_brief_to_flock(
     return send_to_flock(settings, flockml=flockml, plain_text=plain_text)
 
 
-def build_plain_preview(tasks: list[TaskRow]) -> str:
+def build_plain_preview(
+    tasks: list[TaskRow], *, show_completed_in_list: bool = False
+) -> str:
     grouped = group_tasks_by_person(tasks)
     lines = ["Zoho Projects Daily Brief", ""]
     for person, person_tasks in grouped.items():
         lines.append(person)
         lines.append(_person_summary_line(person_tasks, html=False))
         lines.append("")
-        lines.append(_render_person_hierarchy_plain(person_tasks))
+        lines.append(
+            _render_person_hierarchy_plain(
+                person_tasks, show_completed_in_list=show_completed_in_list
+            )
+        )
         lines.append("")
     return "\n".join(lines).strip()
