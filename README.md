@@ -29,12 +29,9 @@ Task · Deadline · Status
 ```
 app.py                 # FastAPI entrypoint (Vercel)
 run_local.py           # Local CLI runner
-services/
-  config.py
-  zoho.py
-  brief.py
-  runner.py
-vercel.json            # Daily cron 03:00 UTC ≈ 08:30 IST
+services/              # Zoho + Flock logic
+vercel.json            # Cron + maxDuration
+.python-version        # Python 3.12 on Vercel
 requirements.txt
 .env.example
 ```
@@ -85,96 +82,86 @@ curl -H "Authorization: Bearer YOUR_CRON_SECRET" ^
   "http://127.0.0.1:8000/api/daily-brief?dry_run=true&include_preview=true"
 ```
 
-## 4. Netlify deploy (recommended for your setup)
+## 4. Vercel deploy
 
-This repo includes `netlify.toml`, a static `public/` site, and two functions:
+This app is a **FastAPI** project. Vercel detects `app.py` + `fastapi` in `requirements.txt` and deploys it as one Python function.
 
-| Function | Purpose |
-|----------|---------|
-| `daily-brief-background` | **Scheduled** weekday run (~08:30 IST, `0 3 * * 1-5` UTC) — use for production |
-| `daily-brief` | **HTTP** manual trigger at `/api/daily-brief` and `/api/daily-brief/test` |
+### A. Import from GitHub
 
-Zoho can take 20–60+ seconds; the **background** function avoids Netlify’s short HTTP timeout.
+1. Go to [vercel.com/new](https://vercel.com/new) → import `Zoho_Projects_Daily_Brief`.
+2. Framework preset: leave **Other** / auto (Python FastAPI from `app.py`).
+3. Root directory: `.` (project root).
+4. Do **not** override the build command unless needed.
 
-### One-time setup
+### B. Environment variables (required)
 
-1. Install the Netlify CLI (optional but useful):
+In **Project → Settings → Environment Variables**, add for **Production** (and Preview if you want):
+
+| Variable | Required |
+|----------|----------|
+| `ZOHO_CLIENT_ID` | yes |
+| `ZOHO_CLIENT_SECRET` | yes |
+| `ZOHO_REFRESH_TOKEN` | yes |
+| `FLOCK_WEBHOOK_URL` | yes |
+| `CRON_SECRET` | yes (same value as in `.env`) |
+
+Optional (defaults already match India setup):
+
+- `ZOHO_ACCOUNTS_DOMAIN=https://accounts.zoho.in`
+- `ZOHO_PROJECTS_DOMAIN=https://projectsapi.zoho.in`
+- `BRIEF_TIMEZONE=Asia/Kolkata`
+- `SKIP_WEEKENDS=true`
+- `SHOW_COMPLETED_IN_LIST=false`
+- `DEADLINE_DATE_ORDER=DMY`
+
+> When `CRON_SECRET` is set, **Vercel Cron** automatically sends  
+> `Authorization: Bearer <CRON_SECRET>` on scheduled invocations.
+
+### C. Deploy
+
+After pushing to `main`, Vercel deploys automatically. Or CLI:
 
 ```bash
-npm install -g netlify-cli
-netlify login
+npm i -g vercel
+vercel login
+vercel link
+vercel env pull   # optional
+vercel --prod
 ```
 
-2. In [Netlify](https://app.netlify.com): **Add new site → Import an existing project** → connect `satwik-sivakoti-s/Zoho_Projects_Daily_Brief`.
+### D. Cron schedule
 
-3. Build settings (usually auto-detected from `netlify.toml`):
+`vercel.json` runs daily at **03:00 UTC** (~08:30 IST):
 
-   - **Build command:** `pip install -r requirements.txt`
-   - **Publish directory:** `public`
-   - **Functions directory:** `netlify/functions`
-
-4. **Site configuration → Environment variables** — add every variable from `.env.example` (scope: **Functions** + **Build**). Required: Zoho OAuth vars, `FLOCK_WEBHOOK_URL`, `CRON_SECRET`.
-
-5. Deploy:
-
-```bash
-git push origin main
+```json
+"crons": [{ "path": "/api/daily-brief", "schedule": "0 3 * * *" }]
 ```
 
-Or from your machine:
+Weekends are skipped in code when `SKIP_WEEKENDS=true` (works on Hobby’s once-per-day cron limit).
+
+`maxDuration` is **60 seconds** (needs a plan that allows it; Hobby Fluid often supports this — if the job times out, upgrade or reduce projects).
+
+### E. Test after deploy
 
 ```bash
-netlify init          # link local folder to the Netlify site (first time)
-netlify deploy --prod
-```
+# Health
+curl https://YOUR_PROJECT.vercel.app/
 
-### After deploy
+# Dry-run (no Flock post) + preview
+curl -H "Authorization: Bearer YOUR_CRON_SECRET" ^
+  "https://YOUR_PROJECT.vercel.app/api/daily-brief?dry_run=true&include_preview=true"
 
-**Scheduled brief** (automatic): runs via `daily-brief-background` on the cron in `netlify.toml`. Check **Functions → daily-brief-background → Logs**.
-
-**Manual / test** (with auth):
-
-```bash
-curl -H "Authorization: Bearer YOUR_CRON_SECRET" \
-  https://YOUR-SITE.netlify.app/api/daily-brief
-
-curl -H "Authorization: Bearer YOUR_CRON_SECRET" \
-  "https://YOUR-SITE.netlify.app/api/daily-brief/test?include_preview=true"
-```
-
-Direct function URL (same auth):
-
-```bash
-curl -H "Authorization: Bearer YOUR_CRON_SECRET" \
-  https://YOUR-SITE.netlify.app/.netlify/functions/daily-brief
-```
-
-**Local Netlify dev:**
-
-```bash
-netlify dev
-# then call http://localhost:8888/api/daily-brief with Bearer header
-```
-
-> **Note:** Scheduled functions on Netlify require a plan that supports **Scheduled Functions** (included on free tier with limits). Background functions require a **credit-based** Netlify plan for long runs.
-
----
-
-## 5. Vercel deploy (alternative)
-
-1. Push the repo and import it in Vercel.
-2. Framework: auto-detect Python (`app.py` + FastAPI).
-3. Add all vars from `.env.example` under **Settings → Environment Variables**.
-4. **`CRON_SECRET` is required** — use a random 16+ character string. Vercel Cron sends it as `Authorization: Bearer <CRON_SECRET>`.
-5. Deploy.
-
-`vercel.json` schedule: `0 3 * * *` (daily ~08:30 IST). Weekends are skipped in code when `SKIP_WEEKENDS=true` (Hobby-friendly).
-
-Manual trigger:
-
-```bash
-curl -H "Authorization: Bearer YOUR_CRON_SECRET" \
+# Real post to Flock
+curl -H "Authorization: Bearer YOUR_CRON_SECRET" ^
   https://YOUR_PROJECT.vercel.app/api/daily-brief
+```
+
+Check **Deployments → Functions / Logs** if something fails.
+
+### Local with Vercel
+
+```bash
+vercel dev
 ```
 
 ## Environment variables
