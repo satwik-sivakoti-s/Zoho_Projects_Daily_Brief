@@ -19,9 +19,13 @@ def run_daily_brief(settings: Settings | None = None, *, dry_run: bool = False) 
         tasks,
         timezone_name=settings.timezone_name,
         show_completed_in_list=settings.show_completed_in_list,
+        hide_if_deadline_days_ahead=settings.hide_if_deadline_days_ahead,
     )
     preview = build_plain_preview(
-        tasks, show_completed_in_list=settings.show_completed_in_list
+        tasks,
+        show_completed_in_list=settings.show_completed_in_list,
+        hide_if_deadline_days_ahead=settings.hide_if_deadline_days_ahead,
+        timezone_name=settings.timezone_name,
     )
 
     result: dict[str, Any] = {

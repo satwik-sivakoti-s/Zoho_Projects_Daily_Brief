@@ -1,6 +1,6 @@
 # Zoho Projects Daily Brief → Flock
 
-Python automation that pulls tasks from **Zoho Projects**, groups them by assignee, and posts a daily summary to a **Flock** channel. Built to deploy on **Vercel** with a cron trigger.
+Python automation that pulls tasks from **Zoho Projects**, groups them by assignee, and posts a daily summary to a **Flock** channel. Hosted on **Vercel**; scheduled via **Supabase Cron** (project *Internal Tools*).
 
 ## Message format
 
@@ -24,13 +24,16 @@ Task · Deadline · Status
 | **Delayed** | Not completed and deadline is before today (in `BRIEF_TIMEZONE`) |
 | **On Track** | Not completed and deadline is today/future (or missing) |
 
+Tasks whose deadline is **7 or more days away** are omitted from the brief (configurable via `HIDE_IF_DEADLINE_DAYS_AHEAD`; set `0` to show everything). **Delayed** tasks and tasks with no deadline always appear.
+
 ## Layout
 
 ```
 app.py                 # FastAPI entrypoint (Vercel)
 run_local.py           # Local CLI runner
 services/              # Zoho + Flock logic
-vercel.json            # Cron + maxDuration
+vercel.json            # maxDuration (no Vercel cron)
+supabase/              # SQL to create Supabase Cron job
 .python-version        # Python 3.12 on Vercel
 requirements.txt
 .env.example
@@ -76,15 +79,15 @@ python run_local.py
 API locally:
 
 ```bash
-# set CRON_SECRET in .env first
+# set ZOHO_PROJECTS_CRON_SECRET in .env first
 uvicorn app:app --reload
-curl -H "Authorization: Bearer YOUR_CRON_SECRET" ^
+curl -H "Authorization: Bearer YOUR_ZOHO_PROJECTS_CRON_SECRET" ^
   "http://127.0.0.1:8000/api/daily-brief?dry_run=true&include_preview=true"
 ```
 
 ## 4. Vercel deploy
 
-This app is a **FastAPI** project. Vercel detects `app.py` + `fastapi` in `requirements.txt` and deploys it as one Python function.
+This app is a **FastAPI** project. Vercel detects `app.py` + `fastapi` in `requirements.txt` and deploys it as one Python function. Scheduling is **not** done on Vercel — use Supabase Cron (section 5).
 
 ### A. Import from GitHub
 
@@ -93,7 +96,7 @@ This app is a **FastAPI** project. Vercel detects `app.py` + `fastapi` in `requi
 3. Root directory: `.` (project root).
 4. Do **not** override the build command unless needed.
 
-### B. Environment variables (required)
+### B. Environment variables (required on Vercel)
 
 In **Project → Settings → Environment Variables**, add for **Production** (and Preview if you want):
 
@@ -103,7 +106,7 @@ In **Project → Settings → Environment Variables**, add for **Production** (a
 | `ZOHO_CLIENT_SECRET` | yes |
 | `ZOHO_REFRESH_TOKEN` | yes |
 | `FLOCK_WEBHOOK_URL` | yes |
-| `CRON_SECRET` | yes (same value as in `.env`) |
+| `ZOHO_PROJECTS_CRON_SECRET` | yes (same value as in `.env` / Supabase Vault) |
 
 Optional (defaults already match India setup):
 
@@ -113,9 +116,7 @@ Optional (defaults already match India setup):
 - `SKIP_WEEKENDS=true`
 - `SHOW_COMPLETED_IN_LIST=false`
 - `DEADLINE_DATE_ORDER=DMY`
-
-> When `CRON_SECRET` is set, **Vercel Cron** automatically sends  
-> `Authorization: Bearer <CRON_SECRET>` on scheduled invocations.
+- `HIDE_IF_DEADLINE_DAYS_AHEAD=7`
 
 ### C. Deploy
 
@@ -129,40 +130,35 @@ vercel env pull   # optional
 vercel --prod
 ```
 
-### D. Cron schedule
-
-`vercel.json` runs daily at **03:00 UTC** (~08:30 IST):
-
-```json
-"crons": [{ "path": "/api/daily-brief", "schedule": "0 3 * * *" }]
-```
-
-Weekends are skipped in code when `SKIP_WEEKENDS=true` (works on Hobby’s once-per-day cron limit).
-
-`maxDuration` is **60 seconds** (needs a plan that allows it; Hobby Fluid often supports this — if the job times out, upgrade or reduce projects).
-
-### E. Test after deploy
+### D. Test after deploy
 
 ```bash
 # Health
 curl https://YOUR_PROJECT.vercel.app/
 
 # Dry-run (no Flock post) + preview
-curl -H "Authorization: Bearer YOUR_CRON_SECRET" ^
+curl -H "Authorization: Bearer YOUR_ZOHO_PROJECTS_CRON_SECRET" ^
   "https://YOUR_PROJECT.vercel.app/api/daily-brief?dry_run=true&include_preview=true"
 
 # Real post to Flock
-curl -H "Authorization: Bearer YOUR_CRON_SECRET" ^
+curl -H "Authorization: Bearer YOUR_ZOHO_PROJECTS_CRON_SECRET" ^
   https://YOUR_PROJECT.vercel.app/api/daily-brief
 ```
 
 Check **Deployments → Functions / Logs** if something fails.
 
-### Local with Vercel
+## 5. Supabase Cron (Internal Automations)
 
-```bash
-vercel dev
-```
+Schedule: **Mon–Fri 10:30 AM IST** (`0 5 * * 1-5` UTC). Saturdays and Sundays are not scheduled.
+
+1. Open the Supabase project **Internal Tools**.
+2. SQL Editor → run [`supabase/cron_zoho_projects_daily_brief.sql`](supabase/cron_zoho_projects_daily_brief.sql) after replacing:
+   - `<VERCEL_APP_URL>` → your live `https://….vercel.app/api/daily-brief`
+   - `<SAME_SECRET_AS_VERCEL>` → same string as `ZOHO_PROJECTS_CRON_SECRET` on Vercel
+3. Confirm under **Integrations → Cron** that job `zoho-projects-daily-brief` is active.
+4. Optional smoke test: run the `net.http_get(…)` snippet from that file once manually, then check `net._http_response` and Vercel function logs.
+
+Secrets for the cron live in **Supabase Vault** (`zoho_projects_brief_url`, `zoho_projects_cron_secret`) — not as Edge Function env vars.
 
 ## Environment variables
 
@@ -172,14 +168,15 @@ vercel dev
 | `ZOHO_CLIENT_SECRET` | yes | OAuth client secret |
 | `ZOHO_REFRESH_TOKEN` | yes | Refresh token with Projects scopes |
 | `FLOCK_WEBHOOK_URL` | yes | Incoming webhook URL |
-| `CRON_SECRET` | yes (prod) | Bearer token for manual `/api/daily-brief` calls |
+| `ZOHO_PROJECTS_CRON_SECRET` | yes (prod) | Bearer token for `/api/daily-brief` (Supabase Cron + manual curls) |
 | `ZOHO_ACCOUNTS_DOMAIN` | no | Default `https://accounts.zoho.in` |
 | `ZOHO_PROJECTS_DOMAIN` | no | Default `https://projectsapi.zoho.in` |
 | `ZOHO_PORTAL_ID` | no | Auto-detected if empty |
 | `SHOW_COMPLETED_IN_LIST` | no | Default `false` (counts still include completed) |
 | `DEADLINE_DATE_ORDER` | no | `DMY` (India) or `MDY` |
 | `BRIEF_TIMEZONE` | no | Default `Asia/Kolkata` |
-| `SKIP_WEEKENDS` | no | Default `true` |
+| `SKIP_WEEKENDS` | no | Default `true` (extra weekend guard) |
+| `HIDE_IF_DEADLINE_DAYS_AHEAD` | no | Default `7` |
 
 ## Notes
 

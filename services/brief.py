@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import datetime
+from datetime import date, datetime
 from html import escape
 from zoneinfo import ZoneInfo
 
@@ -35,10 +35,63 @@ def _person_status_counts(tasks: list[TaskRow]) -> tuple[int, int, int]:
     return total, delayed, completed
 
 
-def _tasks_for_display(tasks: list[TaskRow], *, show_completed_in_list: bool) -> list[TaskRow]:
+def _parse_task_deadline(deadline: str) -> date | None:
+    value = (deadline or "").strip()
+    if not value or value == "—":
+        return None
+    try:
+        return date.fromisoformat(value.split(" ")[0])
+    except ValueError:
+        return None
+
+
+def _is_deadline_too_far(
+    task: TaskRow, *, today: date, hide_if_deadline_days_ahead: int
+) -> bool:
+    """Hide open tasks whose deadline is 7+ days away (configurable)."""
+    if hide_if_deadline_days_ahead <= 0:
+        return False
+    if task.status == "Delayed":
+        return False
+    parsed = _parse_task_deadline(task.deadline)
+    if parsed is None:
+        return False
+    days_until = (parsed - today).days
+    return days_until >= hide_if_deadline_days_ahead
+
+
+def _tasks_in_brief_scope(
+    tasks: list[TaskRow],
+    *,
+    today: date,
+    hide_if_deadline_days_ahead: int,
+) -> list[TaskRow]:
+    return [
+        task
+        for task in tasks
+        if not _is_deadline_too_far(
+            task,
+            today=today,
+            hide_if_deadline_days_ahead=hide_if_deadline_days_ahead,
+        )
+    ]
+
+
+def _tasks_for_display(
+    tasks: list[TaskRow],
+    *,
+    show_completed_in_list: bool,
+    today: date,
+    hide_if_deadline_days_ahead: int,
+) -> list[TaskRow]:
+    scoped = _tasks_in_brief_scope(
+        tasks,
+        today=today,
+        hide_if_deadline_days_ahead=hide_if_deadline_days_ahead,
+    )
     if show_completed_in_list:
-        return tasks
-    return [task for task in tasks if task.status != "Completed"]
+        return scoped
+    return [task for task in scoped if task.status != "Completed"]
 
 
 def _person_summary_line(tasks: list[TaskRow], *, html: bool) -> str:
@@ -68,7 +121,11 @@ def _task_detail_flockml(task: TaskRow) -> str:
 
 
 def _render_person_hierarchy_plain(
-    tasks: list[TaskRow], *, show_completed_in_list: bool
+    tasks: list[TaskRow],
+    *,
+    show_completed_in_list: bool,
+    today: date,
+    hide_if_deadline_days_ahead: int,
 ) -> str:
     """
     Satwik
@@ -81,7 +138,12 @@ def _render_person_hierarchy_plain(
         • task · deadline · status
     """
     lines: list[str] = []
-    visible = _tasks_for_display(tasks, show_completed_in_list=show_completed_in_list)
+    visible = _tasks_for_display(
+        tasks,
+        show_completed_in_list=show_completed_in_list,
+        today=today,
+        hide_if_deadline_days_ahead=hide_if_deadline_days_ahead,
+    )
     by_list = group_tasks_by_tasklist(visible)
     for tasklist_name, list_tasks in by_list.items():
         if not list_tasks:
@@ -94,10 +156,19 @@ def _render_person_hierarchy_plain(
 
 
 def _render_person_hierarchy_flockml(
-    tasks: list[TaskRow], *, show_completed_in_list: bool
+    tasks: list[TaskRow],
+    *,
+    show_completed_in_list: bool,
+    today: date,
+    hide_if_deadline_days_ahead: int,
 ) -> str:
     parts: list[str] = []
-    visible = _tasks_for_display(tasks, show_completed_in_list=show_completed_in_list)
+    visible = _tasks_for_display(
+        tasks,
+        show_completed_in_list=show_completed_in_list,
+        today=today,
+        hide_if_deadline_days_ahead=hide_if_deadline_days_ahead,
+    )
     by_list = group_tasks_by_tasklist(visible)
     for tasklist_name, list_tasks in by_list.items():
         if not list_tasks:
@@ -115,28 +186,54 @@ def build_flockml(
     *,
     timezone_name: str = "Asia/Kolkata",
     show_completed_in_list: bool = False,
+    hide_if_deadline_days_ahead: int = 7,
+    today: date | None = None,
 ) -> str:
     now = datetime.now(ZoneInfo(timezone_name))
+    if today is None:
+        today = now.date()
     date_label = now.strftime("%d %b %Y")
     grouped = group_tasks_by_person(tasks)
 
+    scoped_total = 0
+    visible_people = 0
+    for person_tasks in grouped.values():
+        scoped = _tasks_in_brief_scope(
+            person_tasks,
+            today=today,
+            hide_if_deadline_days_ahead=hide_if_deadline_days_ahead,
+        )
+        if scoped:
+            visible_people += 1
+            scoped_total += len(scoped)
+
     parts = [
         f"<b>Zoho Projects Daily Brief</b> — {escape(date_label)}",
-        f"Total tasks: {len(tasks)} | People: {len(grouped)}",
+        f"Total tasks: {scoped_total} | People: {visible_people}",
         "",
     ]
 
-    if not grouped:
-        parts.append("No open tasks found.")
+    if scoped_total == 0:
+        parts.append("No tasks due within the next week.")
         inner = "<br/>".join(parts)
         return f"<flockml>{inner}</flockml>"
 
     for person, person_tasks in grouped.items():
+        scoped = _tasks_in_brief_scope(
+            person_tasks,
+            today=today,
+            hide_if_deadline_days_ahead=hide_if_deadline_days_ahead,
+        )
+        if not scoped:
+            continue
         parts.append(f"<b>{escape(person)}</b>")
-        parts.append(_person_summary_line(person_tasks, html=True))
+        parts.append(_person_summary_line(scoped, html=True))
         parts.append(
             _render_person_hierarchy_flockml(
-                person_tasks, show_completed_in_list=show_completed_in_list
+                person_tasks,
+                show_completed_in_list=show_completed_in_list,
+                today=today,
+                hide_if_deadline_days_ahead=hide_if_deadline_days_ahead,
             )
         )
         parts.append("")
@@ -187,17 +284,34 @@ def send_brief_to_flock(
 
 
 def build_plain_preview(
-    tasks: list[TaskRow], *, show_completed_in_list: bool = False
+    tasks: list[TaskRow],
+    *,
+    show_completed_in_list: bool = False,
+    hide_if_deadline_days_ahead: int = 7,
+    today: date | None = None,
+    timezone_name: str = "Asia/Kolkata",
 ) -> str:
+    if today is None:
+        today = datetime.now(ZoneInfo(timezone_name)).date()
     grouped = group_tasks_by_person(tasks)
     lines = ["Zoho Projects Daily Brief", ""]
     for person, person_tasks in grouped.items():
+        scoped = _tasks_in_brief_scope(
+            person_tasks,
+            today=today,
+            hide_if_deadline_days_ahead=hide_if_deadline_days_ahead,
+        )
+        if not scoped:
+            continue
         lines.append(person)
-        lines.append(_person_summary_line(person_tasks, html=False))
+        lines.append(_person_summary_line(scoped, html=False))
         lines.append("")
         lines.append(
             _render_person_hierarchy_plain(
-                person_tasks, show_completed_in_list=show_completed_in_list
+                person_tasks,
+                show_completed_in_list=show_completed_in_list,
+                today=today,
+                hide_if_deadline_days_ahead=hide_if_deadline_days_ahead,
             )
         )
         lines.append("")

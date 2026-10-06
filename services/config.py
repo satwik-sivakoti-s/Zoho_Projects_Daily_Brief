@@ -24,6 +24,7 @@ class Settings:
     timezone_name: str
     deadline_date_order: str
     skip_weekends: bool
+    hide_if_deadline_days_ahead: int
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -56,11 +57,14 @@ class Settings:
             zoho_refresh_token=os.environ["ZOHO_REFRESH_TOKEN"],
             zoho_portal_id=os.getenv("ZOHO_PORTAL_ID") or None,
             flock_webhook_url=os.environ["FLOCK_WEBHOOK_URL"],
-            cron_secret=os.getenv("CRON_SECRET") or None,
+            cron_secret=os.getenv("ZOHO_PROJECTS_CRON_SECRET") or None,
             show_completed_in_list=os.getenv("SHOW_COMPLETED_IN_LIST", "false").lower()
             in {"1", "true", "yes"},
             timezone_name=os.getenv("BRIEF_TIMEZONE", "Asia/Kolkata"),
             deadline_date_order=date_order,
             skip_weekends=os.getenv("SKIP_WEEKENDS", "true").lower()
             in {"1", "true", "yes"},
+            hide_if_deadline_days_ahead=int(
+                os.getenv("HIDE_IF_DEADLINE_DAYS_AHEAD", "7")
+            ),
         )

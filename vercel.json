@@ -2,14 +2,8 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
     "app.py": {
-      "maxDuration": 60,
+      "maxDuration": 300,
       "excludeFiles": "{tests/**,netlify/**,public/**,.venv/**,.pytest_cache/**,**/*.md}"
     }
-  },
-  "crons": [
-    {
-      "path": "/api/daily-brief",
-      "schedule": "0 3 * * *"
-    }
-  ]
+  }
 }

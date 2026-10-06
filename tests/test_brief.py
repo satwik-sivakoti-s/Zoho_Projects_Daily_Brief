@@ -24,8 +24,12 @@ def _client() -> ZohoProjectsClient:
         timezone_name="Asia/Kolkata",
         deadline_date_order="DMY",
         skip_weekends=True,
+        hide_if_deadline_days_ahead=7,
     )
     return ZohoProjectsClient(settings, client=MagicMock())
+
+
+_TODAY = date(2026, 10, 5)
 
 
 def test_normalize_task_name_strips_key() -> None:
@@ -92,14 +96,14 @@ def test_group_and_format() -> None:
     grouped = group_tasks_by_person(tasks)
     assert list(grouped.keys()) == ["Alice", "Bob"]
 
-    flockml = build_flockml(tasks, timezone_name="Asia/Kolkata")
+    flockml = build_flockml(tasks, timezone_name="Asia/Kolkata", today=_TODAY)
     assert "Alice" in flockml
     assert "Swap Pixel &amp; Greenonion" in flockml or "Swap Pixel & Greenonion" in flockml
     assert "Analytics Dashboard" in flockml
     assert "&emsp;•" in flockml
     assert flockml.startswith("<flockml>")
     assert flockml.endswith("</flockml>")
-    preview = build_plain_preview(tasks)
+    preview = build_plain_preview(tasks, today=_TODAY)
     assert "Task - 2 · Delayed - 2 · Completed - 0" in preview
     assert "Swap Pixel & Greenonion" in preview
     assert "Analytics Dashboard" in preview
@@ -113,7 +117,26 @@ def test_summary_includes_completed_when_hidden_from_list() -> None:
         TaskRow("Alice", "Done task", "2026-09-01", "Completed", "App", "List A"),
         TaskRow("Alice", "Open task", "2026-10-08", "On Track", "App", "List A"),
     ]
-    preview = build_plain_preview(tasks, show_completed_in_list=False)
+    preview = build_plain_preview(
+        tasks, show_completed_in_list=False, today=_TODAY
+    )
     assert "Task - 2 · Delayed - 0 · Completed - 1" in preview
     assert "Done task" not in preview
     assert "Open task" in preview
+
+
+def test_hide_tasks_with_deadline_seven_or_more_days_away() -> None:
+    tasks = [
+        TaskRow("Bob", "Soon", "2026-10-11", "On Track", "Ops", "List"),  # 6 days
+        TaskRow("Bob", "Far", "2026-10-12", "On Track", "Ops", "List"),  # 7 days
+        TaskRow("Bob", "Later", "2026-10-20", "On Track", "Ops", "List"),
+    ]
+    preview = build_plain_preview(tasks, today=_TODAY)
+    assert "Soon" in preview
+    assert "Far" not in preview
+    assert "Later" not in preview
+    assert "Task - 1 ·" in preview
+
+    flockml = build_flockml(tasks, today=_TODAY)
+    assert "Soon" in flockml
+    assert "Far" not in flockml

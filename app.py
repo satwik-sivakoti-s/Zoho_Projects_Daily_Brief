@@ -27,7 +27,7 @@ app = FastAPI(
 
 
 def _is_authorized(authorization: str | None, cron_secret: str | None) -> bool:
-    """Vercel Cron sends Authorization: Bearer <CRON_SECRET> automatically."""
+    """Expect Authorization: Bearer <ZOHO_PROJECTS_CRON_SECRET> from Supabase Cron."""
     if not cron_secret:
         return False
     if not authorization or not authorization.startswith("Bearer "):
@@ -50,7 +50,7 @@ def daily_brief(
     ),
     authorization: str | None = Header(default=None),
 ) -> JSONResponse:
-    cron_secret = os.getenv("CRON_SECRET")
+    cron_secret = os.getenv("ZOHO_PROJECTS_CRON_SECRET")
     if not _is_authorized(authorization, cron_secret):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
@@ -59,7 +59,7 @@ def daily_brief(
     except ValueError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
-    # Skip weekends when Hobby cron must use a daily schedule
+    # Extra guard if a schedule ever includes weekends
     if settings.skip_weekends:
         weekday = datetime.now(ZoneInfo(settings.timezone_name)).weekday()
         if weekday >= 5:
@@ -95,8 +95,8 @@ def daily_brief_test(
     authorization: str | None = Header(default=None),
 ) -> JSONResponse:
     """Fetch Zoho tasks and print the brief to the server terminal (no Flock post)."""
-    cron_secret = os.getenv("CRON_SECRET")
-    # Local: open when CRON_SECRET is unset. Production: require Bearer token.
+    cron_secret = os.getenv("ZOHO_PROJECTS_CRON_SECRET")
+    # Local: open when ZOHO_PROJECTS_CRON_SECRET is unset. Production: require Bearer.
     if cron_secret and not _is_authorized(authorization, cron_secret):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
