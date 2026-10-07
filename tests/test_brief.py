@@ -102,8 +102,7 @@ def test_group_and_format() -> None:
     assert flockml.count("----") >= 2
     assert "[Swap Pixel &amp; Greenonion]" in flockml or "[Swap Pixel & Greenonion]" in flockml
     assert "[Analytics Dashboard]" in flockml
-    assert "  • <b>Delayed</b> · due 01 Oct" in flockml
-    assert "    Greenonion changes" in flockml
+    assert "  • Greenonion changes · due 01 Oct · <b>Delayed</b>" in flockml
     assert "2026-10-01" not in flockml  # ISO dates auto-link on mobile
     assert "&emsp;" not in flockml
     assert "<br>" in flockml
@@ -116,10 +115,9 @@ def test_group_and_format() -> None:
     assert "Task - 2 · Delayed - 2 · Completed - 0" in preview
     assert "[Swap Pixel & Greenonion]" in preview
     assert "[Analytics Dashboard]" in preview
-    assert "\t• Delayed · due 01 Oct" in preview
-    assert "\t  Greenonion changes" in preview
-    assert "\t• Delayed · due 02 Oct" in preview
-    assert "\t• On Track · due 06 Oct" in preview
+    assert "\t• Greenonion changes · due 01 Oct · Delayed" in preview
+    assert "\t• Brand Context ingestion · due 02 Oct · Delayed" in preview
+    assert "\t• Write brief · due 06 Oct · On Track" in preview
 
 
 def test_summary_includes_completed_when_hidden_from_list() -> None:

@@ -129,24 +129,16 @@ def _compact_task_name(task_name: str, *, max_len: int = 140) -> str:
     return compact[: max_len - 1].rstrip() + "…"
 
 
-def _task_block_plain(task: TaskRow) -> list[str]:
+def _task_line_plain(task: TaskRow) -> str:
     name = _compact_task_name(task.task_name)
     due = _format_deadline_display(task.deadline)
-    return [
-        f"\t• {task.status} · due {due}",
-        f"\t  {name}",
-        "",
-    ]
+    return f"\t• {name} · due {due} · {task.status}"
 
 
-def _task_block_flockml(task: TaskRow) -> list[str]:
+def _task_line_flockml(task: TaskRow) -> str:
     name = escape(_compact_task_name(task.task_name))
     due = escape(_format_deadline_display(task.deadline))
-    return [
-        f"  • {_status_label(task.status)} · due {due}",
-        f"    {name}",
-        "",
-    ]
+    return f"  • {name} · due {due} · {_status_label(task.status)}"
 
 
 def _render_person_hierarchy_plain(
@@ -157,12 +149,13 @@ def _render_person_hierarchy_plain(
     hide_if_deadline_days_ahead: int,
 ) -> str:
     """
-    == Satwik ==
-    Task - n · Delayed - n · Completed - n
+    [Task list]
+        • task · due 01 Oct · Delayed
+                                              ← 1 blank between tasks
+        • task · due 02 Oct · On Track
 
-    Swap Pixel & Greenonion
-        • Delayed · due 01 Oct
-          task name
+                                              ← 2 blanks between task lists
+    [Next task list]
     """
     lines: list[str] = []
     visible = _tasks_for_display(
@@ -177,7 +170,9 @@ def _render_person_hierarchy_plain(
             continue
         lines.append(f"[{tasklist_name}]")
         for task in list_tasks:
-            lines.extend(_task_block_plain(task))
+            lines.append(_task_line_plain(task))
+            lines.append("")  # 1 blank between tasks
+        lines.append("")  # 2nd blank → gap between task lists
     return "\n".join(lines).rstrip()
 
 
@@ -204,10 +199,11 @@ def _render_person_hierarchy_flockml(
     for tasklist_name, list_tasks in by_list.items():
         if not list_tasks:
             continue
-        # Bracket task-list titles so they scan as group labels, not person names
         parts.append(f"<b>[{escape(tasklist_name)}]</b>")
         for task in list_tasks:
-            parts.extend(_task_block_flockml(task))
+            parts.append(_task_line_flockml(task))
+            parts.append("")  # 1 blank between tasks
+        parts.append("")  # 2nd blank → gap between task lists
     return _join_flockml_lines(parts)
 
 
