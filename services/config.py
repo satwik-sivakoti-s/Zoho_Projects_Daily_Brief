@@ -58,7 +58,7 @@ class Settings:
             zoho_portal_id=os.getenv("ZOHO_PORTAL_ID") or None,
             flock_webhook_url=os.environ["FLOCK_WEBHOOK_URL"],
             cron_secret=os.getenv("ZOHO_PROJECTS_CRON_SECRET") or None,
-            show_completed_in_list=os.getenv("SHOW_COMPLETED_IN_LIST", "false").lower()
+            show_completed_in_list=os.getenv("SHOW_COMPLETED_IN_LIST", "true").lower()
             in {"1", "true", "yes"},
             timezone_name=os.getenv("BRIEF_TIMEZONE", "Asia/Kolkata"),
             deadline_date_order=date_order,

@@ -110,7 +110,7 @@ Optional (defaults already match India setup):
 - `ZOHO_PROJECTS_DOMAIN=https://projectsapi.zoho.in`
 - `BRIEF_TIMEZONE=Asia/Kolkata`
 - `SKIP_WEEKENDS=true`
-- `SHOW_COMPLETED_IN_LIST=false`
+- `SHOW_COMPLETED_IN_LIST=true`
 - `DEADLINE_DATE_ORDER=DMY`
 - `HIDE_IF_DEADLINE_DAYS_AHEAD=5`
 
@@ -168,7 +168,7 @@ Secrets for the cron live in **Supabase Vault** (`zoho_projects_brief_url`, `zoh
 | `ZOHO_ACCOUNTS_DOMAIN` | no | Default `https://accounts.zoho.in` |
 | `ZOHO_PROJECTS_DOMAIN` | no | Default `https://projectsapi.zoho.in` |
 | `ZOHO_PORTAL_ID` | no | Auto-detected if empty |
-| `SHOW_COMPLETED_IN_LIST` | no | Default `false` (counts still include completed) |
+| `SHOW_COMPLETED_IN_LIST` | no | Default `true` (set `false` to hide Completed bullets) |
 | `DEADLINE_DATE_ORDER` | no | `DMY` (India) or `MDY` |
 | `BRIEF_TIMEZONE` | no | Default `Asia/Kolkata` |
 | `SKIP_WEEKENDS` | no | Default `true` (extra weekend guard) |
@@ -177,6 +177,6 @@ Secrets for the cron live in **Supabase Vault** (`zoho_projects_brief_url`, `zoh
 ## Notes
 
 - Each run refreshes the OAuth token and calls Zoho with `status=all` so completed counts stay accurate.
-- By default, completed tasks appear in the summary only (`SHOW_COMPLETED_IN_LIST=false`); open/delayed tasks are listed under each task list.
+- All Zoho statuses are listed (Open, In Progress, In Review, On Hold, Delayed, Completed), still subject to the 5-day deadline filter.
 - Multi-owner tasks appear under each owner.
 - Prefer epoch deadline (`end_date_long`) from Zoho when available for due-date filtering.

@@ -20,7 +20,7 @@ def _client() -> ZohoProjectsClient:
         zoho_portal_id="1",
         flock_webhook_url="https://example.com/hook",
         cron_secret="test-secret",
-        show_completed_in_list=False,
+        show_completed_in_list=True,
         timezone_name="Asia/Kolkata",
         deadline_date_order="DMY",
         skip_weekends=True,
@@ -157,17 +157,25 @@ def test_group_and_format() -> None:
     assert "\t• Write brief · due 06 Oct · Open" in preview
 
 
-def test_summary_includes_completed_when_hidden_from_list() -> None:
+def test_completed_tasks_shown_in_list_by_default() -> None:
     tasks = [
         TaskRow("Alice", "Done task", "2026-09-01", "Completed", "App", "List A"),
         TaskRow("Alice", "Open task", "2026-10-08", "Open", "App", "List A"),
+        TaskRow("Alice", "Review task", "2026-10-07", "In Review", "App", "List A"),
     ]
-    preview = build_plain_preview(
+    preview = build_plain_preview(tasks, today=_TODAY)
+    assert "Task - 3 · Delayed - 0 · Completed - 1" in preview
+    assert "Done task" in preview
+    assert "Open task" in preview
+    assert "Review task" in preview
+    assert "· Completed" in preview
+    assert "· In Review" in preview
+
+    hidden = build_plain_preview(
         tasks, show_completed_in_list=False, today=_TODAY
     )
-    assert "Task - 2 · Delayed - 0 · Completed - 1" in preview
-    assert "Done task" not in preview
-    assert "Open task" in preview
+    assert "Done task" not in hidden
+    assert "Open task" in hidden
 
 
 def test_hide_tasks_with_deadline_five_or_more_days_away() -> None:

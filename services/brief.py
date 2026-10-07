@@ -221,7 +221,7 @@ def build_flockml(
     tasks: list[TaskRow],
     *,
     timezone_name: str = "Asia/Kolkata",
-    show_completed_in_list: bool = False,
+    show_completed_in_list: bool = True,
     hide_if_deadline_days_ahead: int = 5,
     today: date | None = None,
 ) -> str:
@@ -320,7 +320,7 @@ def send_brief_to_flock(
 def build_plain_preview(
     tasks: list[TaskRow],
     *,
-    show_completed_in_list: bool = False,
+    show_completed_in_list: bool = True,
     hide_if_deadline_days_ahead: int = 5,
     today: date | None = None,
     timezone_name: str = "Asia/Kolkata",
