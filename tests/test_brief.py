@@ -100,7 +100,10 @@ def test_group_and_format() -> None:
     assert "Alice" in flockml
     assert "Swap Pixel &amp; Greenonion" in flockml or "Swap Pixel & Greenonion" in flockml
     assert "Analytics Dashboard" in flockml
-    assert "&emsp;•" in flockml
+    assert "  • " in flockml
+    assert "&emsp;" not in flockml
+    assert "<br>" in flockml
+    assert "<br/>" not in flockml
     assert flockml.startswith("<flockml>")
     assert flockml.endswith("</flockml>")
     preview = build_plain_preview(tasks, today=_TODAY)

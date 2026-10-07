@@ -155,6 +155,11 @@ def _render_person_hierarchy_plain(
     return "\n".join(lines).rstrip()
 
 
+def _join_flockml_lines(parts: list[str]) -> str:
+    """Mobile Flock ignores self-closing <br/> and HTML entities like &emsp;."""
+    return "<br>".join(parts).rstrip()
+
+
 def _render_person_hierarchy_flockml(
     tasks: list[TaskRow],
     *,
@@ -175,10 +180,10 @@ def _render_person_hierarchy_flockml(
             continue
         parts.append(f"<b>{escape(tasklist_name)}</b>")
         for task in list_tasks:
-            # &emsp; ≈ tab indent under the task-list title
-            parts.append(f"&emsp;• {_task_detail_flockml(task)}")
+            # Plain spaces — mobile Flock shows &emsp; literally
+            parts.append(f"  • {_task_detail_flockml(task)}")
         parts.append("")
-    return "<br/>".join(parts).rstrip()
+    return _join_flockml_lines(parts)
 
 
 def build_flockml(
@@ -215,8 +220,7 @@ def build_flockml(
 
     if scoped_total == 0:
         parts.append("No tasks due within the next week.")
-        inner = "<br/>".join(parts)
-        return f"<flockml>{inner}</flockml>"
+        return f"<flockml>{_join_flockml_lines(parts)}</flockml>"
 
     for person, person_tasks in grouped.items():
         scoped = _tasks_in_brief_scope(
@@ -238,8 +242,7 @@ def build_flockml(
         )
         parts.append("")
 
-    inner = "<br/>".join(parts).rstrip()
-    return f"<flockml>{inner}</flockml>"
+    return f"<flockml>{_join_flockml_lines(parts)}</flockml>"
 
 
 def _parse_flock_response(response: httpx.Response) -> dict:
@@ -253,9 +256,8 @@ def _parse_flock_response(response: httpx.Response) -> dict:
 
 def send_to_flock(settings: Settings, flockml: str, plain_text: str | None = None) -> dict:
     """Incoming webhooks only accept ``text`` and/or ``flockml`` (no attachments)."""
+    # Full plain body as fallback — mobile clients sometimes ignore FlockML breaks.
     notification = plain_text or "Zoho Projects Daily Brief"
-    if len(notification) > 200:
-        notification = notification.splitlines()[0][:200]
 
     payload: dict[str, str] = {
         "text": notification,
