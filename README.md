@@ -18,9 +18,9 @@ Task · Deadline · Status
 • Write brief · due 06 Oct · Open
 ```
 
-Statuses come from **Zoho Projects** as-is (e.g. Open, In Progress, In Review, On Hold, Delayed). Closed tasks are shown as **Completed**.
+Statuses follow Zoho’s board labels (**Open**, **In Progress**, **In Review**, **On Hold**, **Delayed**). Closed tasks → **Completed**. Past-due **Open** tasks are shown as **Delayed**.
 
-Tasks whose deadline is **5 or more days away** are omitted from the brief (configurable via `HIDE_IF_DEADLINE_DAYS_AHEAD`; set `0` to show everything). Zoho **Delayed** tasks and tasks with no deadline always appear.
+Tasks whose deadline is **5 or more days away** are omitted (configurable via `HIDE_IF_DEADLINE_DAYS_AHEAD`; set `0` to show everything). **Delayed** tasks and tasks with no deadline always appear. All statuses that pass that filter are listed.
 
 ## Layout
 

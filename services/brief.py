@@ -85,14 +85,13 @@ def _tasks_for_display(
     today: date,
     hide_if_deadline_days_ahead: int,
 ) -> list[TaskRow]:
-    scoped = _tasks_in_brief_scope(
+    """All Zoho statuses in scope; only the 5-day deadline rule filters tasks."""
+    _ = show_completed_in_list  # kept for call-site compat; all statuses are listed
+    return _tasks_in_brief_scope(
         tasks,
         today=today,
         hide_if_deadline_days_ahead=hide_if_deadline_days_ahead,
     )
-    if show_completed_in_list:
-        return scoped
-    return [task for task in scoped if task.status != "Completed"]
 
 
 def _person_summary_line(tasks: list[TaskRow], *, html: bool) -> str:

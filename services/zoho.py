@@ -269,12 +269,25 @@ class ZohoProjectsClient:
         "complete": "Completed",
     }
 
+    # Keep these Zoho board labels even when the due date has passed.
+    _PRESERVE_WHEN_OVERDUE = frozenset(
+        {"In Progress", "In Review", "On Hold", "Delayed"}
+    )
+
     def _classify_status(self, task: dict[str, Any], today: date) -> str:
-        _ = today  # kept for call-site compatibility; Zoho status name is authoritative
         completed = bool(task.get("completed"))
-        status_obj = task.get("status") or {}
+        status_raw = task.get("status")
+        if isinstance(status_raw, str):
+            status_obj: dict[str, Any] = {"name": status_raw}
+        else:
+            status_obj = status_raw or {}
         status_type = str(status_obj.get("type") or "").lower()
-        raw_name = str(status_obj.get("name") or "").strip()
+        raw_name = str(
+            status_obj.get("name")
+            or status_obj.get("status_name")
+            or task.get("status_name")
+            or ""
+        ).strip()
         status_name = " ".join(raw_name.lower().split())
         is_closed_type = bool(status_obj.get("is_closed_type"))
 
@@ -292,10 +305,20 @@ class ZohoProjectsClient:
         ):
             return "Completed"
 
-        if status_name:
-            return self._STATUS_ALIASES.get(status_name, raw_name)
+        zoho_label = (
+            self._STATUS_ALIASES.get(status_name, raw_name) if status_name else "Open"
+        )
 
-        return "Open"
+        # Past due + still Open → Delayed (Zoho board status). Keep In Progress / etc.
+        deadline = self._deadline_date_from_task(task)
+        if (
+            deadline
+            and deadline < today
+            and zoho_label not in self._PRESERVE_WHEN_OVERDUE
+        ):
+            return "Delayed"
+
+        return zoho_label
 
     def _deadline_date_from_task(self, task: dict[str, Any]) -> date | None:
         end_long = task.get("end_date_long")

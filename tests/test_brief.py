@@ -90,7 +90,7 @@ def test_classify_zoho_status_names() -> None:
     )
 
 
-def test_classify_does_not_override_open_when_past_deadline() -> None:
+def test_classify_open_past_deadline_becomes_delayed() -> None:
     status = _client()._classify_status(
         {
             "completed": False,
@@ -99,7 +99,19 @@ def test_classify_does_not_override_open_when_past_deadline() -> None:
         },
         today=date(2026, 10, 5),
     )
-    assert status == "Open"
+    assert status == "Delayed"
+
+
+def test_classify_preserves_in_progress_when_overdue() -> None:
+    status = _client()._classify_status(
+        {
+            "completed": False,
+            "end_date": "01-10-2026",
+            "status": {"name": "In Progress", "type": "open"},
+        },
+        today=date(2026, 10, 5),
+    )
+    assert status == "In Progress"
 
 
 def test_group_and_format() -> None:
@@ -157,25 +169,24 @@ def test_group_and_format() -> None:
     assert "\t• Write brief · due 06 Oct · Open" in preview
 
 
-def test_completed_tasks_shown_in_list_by_default() -> None:
+def test_all_statuses_shown_including_completed() -> None:
     tasks = [
         TaskRow("Alice", "Done task", "2026-09-01", "Completed", "App", "List A"),
         TaskRow("Alice", "Open task", "2026-10-08", "Open", "App", "List A"),
         TaskRow("Alice", "Review task", "2026-10-07", "In Review", "App", "List A"),
+        TaskRow("Alice", "Hold task", "2026-10-06", "On Hold", "App", "List A"),
     ]
-    preview = build_plain_preview(tasks, today=_TODAY)
-    assert "Task - 3 · Delayed - 0 · Completed - 1" in preview
+    preview = build_plain_preview(
+        tasks, show_completed_in_list=False, today=_TODAY
+    )
+    assert "Task - 4 · Delayed - 0 · Completed - 1" in preview
     assert "Done task" in preview
     assert "Open task" in preview
     assert "Review task" in preview
+    assert "Hold task" in preview
     assert "· Completed" in preview
     assert "· In Review" in preview
-
-    hidden = build_plain_preview(
-        tasks, show_completed_in_list=False, today=_TODAY
-    )
-    assert "Done task" not in hidden
-    assert "Open task" in hidden
+    assert "· On Hold" in preview
 
 
 def test_hide_tasks_with_deadline_five_or_more_days_away() -> None:
