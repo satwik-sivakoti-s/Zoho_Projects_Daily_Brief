@@ -253,11 +253,29 @@ class ZohoProjectsClient:
         parsed = self._parse_deadline_date(value)
         return parsed.isoformat() if parsed else (value.split(" ")[0] if value else "")
 
+    # Portal statuses from Zoho Projects (open board); closed → Completed.
+    _STATUS_ALIASES = {
+        "open": "Open",
+        "in progress": "In Progress",
+        "inprogress": "In Progress",
+        "in review": "In Review",
+        "inreview": "In Review",
+        "on hold": "On Hold",
+        "onhold": "On Hold",
+        "delayed": "Delayed",
+        "completed": "Completed",
+        "closed": "Completed",
+        "done": "Completed",
+        "complete": "Completed",
+    }
+
     def _classify_status(self, task: dict[str, Any], today: date) -> str:
+        _ = today  # kept for call-site compatibility; Zoho status name is authoritative
         completed = bool(task.get("completed"))
         status_obj = task.get("status") or {}
         status_type = str(status_obj.get("type") or "").lower()
-        status_name = str(status_obj.get("name") or "").lower()
+        raw_name = str(status_obj.get("name") or "").strip()
+        status_name = " ".join(raw_name.lower().split())
         is_closed_type = bool(status_obj.get("is_closed_type"))
 
         try:
@@ -274,11 +292,10 @@ class ZohoProjectsClient:
         ):
             return "Completed"
 
-        deadline = self._deadline_date_from_task(task)
-        if deadline and deadline < today:
-            return "Delayed"
+        if status_name:
+            return self._STATUS_ALIASES.get(status_name, raw_name)
 
-        return "On Track"
+        return "Open"
 
     def _deadline_date_from_task(self, task: dict[str, Any]) -> date | None:
         end_long = task.get("end_date_long")

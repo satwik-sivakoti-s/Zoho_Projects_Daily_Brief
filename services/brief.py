@@ -48,9 +48,10 @@ def _parse_task_deadline(deadline: str) -> date | None:
 def _is_deadline_too_far(
     task: TaskRow, *, today: date, hide_if_deadline_days_ahead: int
 ) -> bool:
-    """Hide open tasks whose deadline is 7+ days away (configurable)."""
+    """Hide open tasks whose deadline is N+ days away (default 5)."""
     if hide_if_deadline_days_ahead <= 0:
         return False
+    # Zoho "Delayed" status always stays visible
     if task.status == "Delayed":
         return False
     parsed = _parse_task_deadline(task.deadline)
@@ -221,7 +222,7 @@ def build_flockml(
     *,
     timezone_name: str = "Asia/Kolkata",
     show_completed_in_list: bool = False,
-    hide_if_deadline_days_ahead: int = 7,
+    hide_if_deadline_days_ahead: int = 5,
     today: date | None = None,
 ) -> str:
     now = datetime.now(ZoneInfo(timezone_name))
@@ -320,7 +321,7 @@ def build_plain_preview(
     tasks: list[TaskRow],
     *,
     show_completed_in_list: bool = False,
-    hide_if_deadline_days_ahead: int = 7,
+    hide_if_deadline_days_ahead: int = 5,
     today: date | None = None,
     timezone_name: str = "Asia/Kolkata",
 ) -> str:

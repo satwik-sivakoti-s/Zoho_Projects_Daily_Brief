@@ -10,21 +10,17 @@ Total tasks: 12 | People: 4
 
 Alice
 Task · Deadline · Status
-• Fix bug (App) · 2026-10-01 · Delayed
-• Ship feature (App) · 2026-10-08 · On Track
+• Fix bug · due 01 Oct · Delayed
+• Ship feature · due 08 Oct · In Progress
 
 Bob
 Task · Deadline · Status
-• Write brief (Ops) · 2026-10-06 · On Track
+• Write brief · due 06 Oct · Open
 ```
 
-| Status | Rule |
-|--------|------|
-| **Completed** | Task marked completed / closed |
-| **Delayed** | Not completed and deadline is before today (in `BRIEF_TIMEZONE`) |
-| **On Track** | Not completed and deadline is today/future (or missing) |
+Statuses come from **Zoho Projects** as-is (e.g. Open, In Progress, In Review, On Hold, Delayed). Closed tasks are shown as **Completed**.
 
-Tasks whose deadline is **7 or more days away** are omitted from the brief (configurable via `HIDE_IF_DEADLINE_DAYS_AHEAD`; set `0` to show everything). **Delayed** tasks and tasks with no deadline always appear.
+Tasks whose deadline is **5 or more days away** are omitted from the brief (configurable via `HIDE_IF_DEADLINE_DAYS_AHEAD`; set `0` to show everything). Zoho **Delayed** tasks and tasks with no deadline always appear.
 
 ## Layout
 
@@ -116,7 +112,7 @@ Optional (defaults already match India setup):
 - `SKIP_WEEKENDS=true`
 - `SHOW_COMPLETED_IN_LIST=false`
 - `DEADLINE_DATE_ORDER=DMY`
-- `HIDE_IF_DEADLINE_DAYS_AHEAD=7`
+- `HIDE_IF_DEADLINE_DAYS_AHEAD=5`
 
 ### C. Deploy
 
@@ -176,11 +172,11 @@ Secrets for the cron live in **Supabase Vault** (`zoho_projects_brief_url`, `zoh
 | `DEADLINE_DATE_ORDER` | no | `DMY` (India) or `MDY` |
 | `BRIEF_TIMEZONE` | no | Default `Asia/Kolkata` |
 | `SKIP_WEEKENDS` | no | Default `true` (extra weekend guard) |
-| `HIDE_IF_DEADLINE_DAYS_AHEAD` | no | Default `7` |
+| `HIDE_IF_DEADLINE_DAYS_AHEAD` | no | Default `5` |
 
 ## Notes
 
 - Each run refreshes the OAuth token and calls Zoho with `status=all` so completed counts stay accurate.
 - By default, completed tasks appear in the summary only (`SHOW_COMPLETED_IN_LIST=false`); open/delayed tasks are listed under each task list.
 - Multi-owner tasks appear under each owner.
-- Prefer epoch deadline (`end_date_long`) from Zoho when available for accurate Delayed/On Track.
+- Prefer epoch deadline (`end_date_long`) from Zoho when available for due-date filtering.

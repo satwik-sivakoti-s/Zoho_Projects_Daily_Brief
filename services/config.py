@@ -65,6 +65,6 @@ class Settings:
             skip_weekends=os.getenv("SKIP_WEEKENDS", "true").lower()
             in {"1", "true", "yes"},
             hide_if_deadline_days_ahead=int(
-                os.getenv("HIDE_IF_DEADLINE_DAYS_AHEAD", "7")
+                os.getenv("HIDE_IF_DEADLINE_DAYS_AHEAD", "5")
             ),
         )
