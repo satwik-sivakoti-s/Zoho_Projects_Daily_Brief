@@ -97,7 +97,9 @@ def test_group_and_format() -> None:
     assert list(grouped.keys()) == ["Alice", "Bob"]
 
     flockml = build_flockml(tasks, timezone_name="Asia/Kolkata", today=_TODAY)
-    assert "Alice" in flockml
+    assert "<b>== Alice ==</b>" in flockml
+    assert "<b>== Bob ==</b>" in flockml
+    assert flockml.count("----") >= 2
     assert "Swap Pixel &amp; Greenonion" in flockml or "Swap Pixel & Greenonion" in flockml
     assert "Analytics Dashboard" in flockml
     assert "  • " in flockml
@@ -107,6 +109,8 @@ def test_group_and_format() -> None:
     assert flockml.startswith("<flockml>")
     assert flockml.endswith("</flockml>")
     preview = build_plain_preview(tasks, today=_TODAY)
+    assert "== Alice ==" in preview
+    assert "----" in preview
     assert "Task - 2 · Delayed - 2 · Completed - 0" in preview
     assert "Swap Pixel & Greenonion" in preview
     assert "Analytics Dashboard" in preview

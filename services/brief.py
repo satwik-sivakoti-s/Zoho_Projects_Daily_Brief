@@ -178,12 +178,22 @@ def _render_person_hierarchy_flockml(
     for tasklist_name, list_tasks in by_list.items():
         if not list_tasks:
             continue
-        parts.append(f"<b>{escape(tasklist_name)}</b>")
+        # Keep task lists plain so person headers stay visually primary
+        parts.append(escape(tasklist_name))
         for task in list_tasks:
             # Plain spaces — mobile Flock shows &emsp; literally
             parts.append(f"  • {_task_detail_flockml(task)}")
         parts.append("")
     return _join_flockml_lines(parts)
+
+
+def _person_header_flockml(person: str) -> str:
+    # FlockML has no font-size; frame the name so it reads larger than task lists.
+    return f"<b>== {escape(person)} ==</b>"
+
+
+def _person_header_plain(person: str) -> str:
+    return f"== {person} =="
 
 
 def build_flockml(
@@ -230,7 +240,7 @@ def build_flockml(
         )
         if not scoped:
             continue
-        parts.append(f"<b>{escape(person)}</b>")
+        parts.append(_person_header_flockml(person))
         parts.append(_person_summary_line(scoped, html=True))
         parts.append(
             _render_person_hierarchy_flockml(
@@ -240,6 +250,7 @@ def build_flockml(
                 hide_if_deadline_days_ahead=hide_if_deadline_days_ahead,
             )
         )
+        parts.append("----")
         parts.append("")
 
     return f"<flockml>{_join_flockml_lines(parts)}</flockml>"
@@ -305,7 +316,7 @@ def build_plain_preview(
         )
         if not scoped:
             continue
-        lines.append(person)
+        lines.append(_person_header_plain(person))
         lines.append(_person_summary_line(scoped, html=False))
         lines.append("")
         lines.append(
@@ -316,5 +327,6 @@ def build_plain_preview(
                 hide_if_deadline_days_ahead=hide_if_deadline_days_ahead,
             )
         )
+        lines.append("----")
         lines.append("")
     return "\n".join(lines).strip()
