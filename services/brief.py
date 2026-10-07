@@ -109,15 +109,44 @@ def _status_label(status: str) -> str:
     return f"<b>{escape(status)}</b>"
 
 
-def _task_detail_plain(task: TaskRow) -> str:
-    return f"{task.task_name} · {task.deadline} · {task.status}"
+def _format_deadline_display(deadline: str) -> str:
+    """Human date (avoids Flock auto-linking YYYY-MM-DD on mobile)."""
+    value = (deadline or "").strip()
+    if not value or value == "—":
+        return "no due date"
+    try:
+        parsed = date.fromisoformat(value.split(" ")[0])
+    except ValueError:
+        return value
+    return parsed.strftime("%d %b")
 
 
-def _task_detail_flockml(task: TaskRow) -> str:
-    return (
-        f"{escape(task.task_name)} · {escape(task.deadline)} · "
-        f"{_status_label(task.status)}"
-    )
+def _compact_task_name(task_name: str, *, max_len: int = 140) -> str:
+    """Collapse whitespace; trim very long Zoho titles for mobile scanning."""
+    compact = " ".join((task_name or "").split())
+    if len(compact) <= max_len:
+        return compact
+    return compact[: max_len - 1].rstrip() + "…"
+
+
+def _task_block_plain(task: TaskRow) -> list[str]:
+    name = _compact_task_name(task.task_name)
+    due = _format_deadline_display(task.deadline)
+    return [
+        f"\t• {task.status} · due {due}",
+        f"\t  {name}",
+        "",
+    ]
+
+
+def _task_block_flockml(task: TaskRow) -> list[str]:
+    name = escape(_compact_task_name(task.task_name))
+    due = escape(_format_deadline_display(task.deadline))
+    return [
+        f"  • {_status_label(task.status)} · due {due}",
+        f"    {name}",
+        "",
+    ]
 
 
 def _render_person_hierarchy_plain(
@@ -128,14 +157,12 @@ def _render_person_hierarchy_plain(
     hide_if_deadline_days_ahead: int,
 ) -> str:
     """
-    Satwik
+    == Satwik ==
     Task - n · Delayed - n · Completed - n
 
     Swap Pixel & Greenonion
-        • task · deadline · status
-
-    Analytics Dashboard
-        • task · deadline · status
+        • Delayed · due 01 Oct
+          task name
     """
     lines: list[str] = []
     visible = _tasks_for_display(
@@ -148,10 +175,9 @@ def _render_person_hierarchy_plain(
     for tasklist_name, list_tasks in by_list.items():
         if not list_tasks:
             continue
-        lines.append(tasklist_name)
+        lines.append(f"[{tasklist_name}]")
         for task in list_tasks:
-            lines.append(f"\t• {_task_detail_plain(task)}")
-        lines.append("")
+            lines.extend(_task_block_plain(task))
     return "\n".join(lines).rstrip()
 
 
@@ -178,12 +204,10 @@ def _render_person_hierarchy_flockml(
     for tasklist_name, list_tasks in by_list.items():
         if not list_tasks:
             continue
-        # Keep task lists plain so person headers stay visually primary
-        parts.append(escape(tasklist_name))
+        # Bracket task-list titles so they scan as group labels, not person names
+        parts.append(f"<b>[{escape(tasklist_name)}]</b>")
         for task in list_tasks:
-            # Plain spaces — mobile Flock shows &emsp; literally
-            parts.append(f"  • {_task_detail_flockml(task)}")
-        parts.append("")
+            parts.extend(_task_block_flockml(task))
     return _join_flockml_lines(parts)
 
 
