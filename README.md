@@ -20,7 +20,7 @@ Task · Deadline · Status
 
 Statuses follow Zoho’s board labels (**Open**, **In Progress**, **In Review**, **On Hold**, **Delayed**). Closed tasks → **Completed**. Past-due **Open** tasks are shown as **Delayed**.
 
-Tasks whose deadline is **5 or more days away** are omitted (configurable via `HIDE_IF_DEADLINE_DAYS_AHEAD`; set `0` to show everything). **Delayed** tasks and tasks with no deadline always appear. All statuses that pass that filter are listed.
+Tasks whose deadline is **5 or more days away** are omitted (configurable via `HIDE_IF_DEADLINE_DAYS_AHEAD`; set `0` to show everything). **Delayed** tasks and tasks with no deadline always appear. **Completed** (Zoho Closed) tasks stay only if they were closed today, yesterday, or the day before; older closes are omitted.
 
 ## Layout
 

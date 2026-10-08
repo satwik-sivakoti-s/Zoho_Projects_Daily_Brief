@@ -171,7 +171,15 @@ def test_group_and_format() -> None:
 
 def test_all_statuses_shown_including_completed() -> None:
     tasks = [
-        TaskRow("Alice", "Done task", "2026-09-01", "Completed", "App", "List A"),
+        TaskRow(
+            "Alice",
+            "Done task",
+            "2026-09-01",
+            "Completed",
+            "App",
+            "List A",
+            completed_on="2026-10-05",
+        ),
         TaskRow("Alice", "Open task", "2026-10-08", "Open", "App", "List A"),
         TaskRow("Alice", "Review task", "2026-10-07", "In Review", "App", "List A"),
         TaskRow("Alice", "Hold task", "2026-10-06", "On Hold", "App", "List A"),
@@ -187,6 +195,21 @@ def test_all_statuses_shown_including_completed() -> None:
     assert "· Completed" in preview
     assert "· In Review" in preview
     assert "· On Hold" in preview
+
+
+def test_hide_completed_closed_more_than_two_days_ago() -> None:
+    tasks = [
+        TaskRow("Alice", "Today", "2026-10-01", "Completed", "App", "L", completed_on="2026-10-05"),
+        TaskRow("Alice", "Yesterday", "2026-10-01", "Completed", "App", "L", completed_on="2026-10-04"),
+        TaskRow("Alice", "Two days", "2026-10-01", "Completed", "App", "L", completed_on="2026-10-03"),
+        TaskRow("Alice", "Three days", "2026-10-01", "Completed", "App", "L", completed_on="2026-10-02"),
+    ]
+    preview = build_plain_preview(tasks, today=_TODAY)
+    assert "Today" in preview
+    assert "Yesterday" in preview
+    assert "Two days" in preview
+    assert "Three days" not in preview
+    assert "Completed - 3" in preview
 
 
 def test_hide_tasks_with_deadline_five_or_more_days_away() -> None:

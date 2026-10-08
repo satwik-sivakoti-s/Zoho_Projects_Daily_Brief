@@ -61,6 +61,16 @@ def _is_deadline_too_far(
     return days_until >= hide_if_deadline_days_ahead
 
 
+def _is_completed_too_old(task: TaskRow, *, today: date) -> bool:
+    """Hide Closed/Completed tasks marked done more than 2 days ago."""
+    if task.status != "Completed":
+        return False
+    closed_on = _parse_task_deadline(task.completed_on)
+    if closed_on is None:
+        return False
+    return (today - closed_on).days > 2
+
+
 def _tasks_in_brief_scope(
     tasks: list[TaskRow],
     *,
@@ -75,6 +85,7 @@ def _tasks_in_brief_scope(
             today=today,
             hide_if_deadline_days_ahead=hide_if_deadline_days_ahead,
         )
+        and not _is_completed_too_old(task, today=today)
     ]
 
 

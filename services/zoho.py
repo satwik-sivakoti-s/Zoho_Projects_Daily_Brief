@@ -44,6 +44,7 @@ class TaskRow:
     status: str
     project_name: str
     tasklist_name: str = ""
+    completed_on: str = ""
 
 
 class ZohoProjectsClient:
@@ -212,6 +213,7 @@ class ZohoProjectsClient:
         owners = ((task.get("details") or {}).get("owners")) or [{"name": "Unassigned"}]
         deadline = self._format_deadline(task)
         status = self._classify_status(task, today)
+        completed_on = self._format_completed_on(task) if status == "Completed" else ""
         project_name = html.unescape(((task.get("project") or {}).get("name")) or "")
         tasklist_name = normalize_tasklist_name(((task.get("tasklist") or {}).get("name")) or "")
         task_name = normalize_task_name(raw_name, task_key=task_key or None)
@@ -228,6 +230,7 @@ class ZohoProjectsClient:
                     status=status,
                     project_name=project_name,
                     tasklist_name=tasklist_name,
+                    completed_on=completed_on,
                 )
             )
         return rows or [
@@ -238,6 +241,7 @@ class ZohoProjectsClient:
                 status=status,
                 project_name=project_name,
                 tasklist_name=tasklist_name,
+                completed_on=completed_on,
             )
         ]
 
@@ -252,6 +256,26 @@ class ZohoProjectsClient:
         value = str(task.get("end_date") or task.get("end_date_format") or "").strip()
         parsed = self._parse_deadline_date(value)
         return parsed.isoformat() if parsed else (value.split(" ")[0] if value else "")
+
+    def _format_completed_on(self, task: dict[str, Any]) -> str:
+        """Date the task was marked Closed/Completed, in BRIEF_TIMEZONE."""
+        for key in ("completed_on_long", "completion_date_long"):
+            raw = task.get(key)
+            if not raw:
+                continue
+            try:
+                closed = datetime.fromtimestamp(
+                    int(raw) / 1000, ZoneInfo(self.settings.timezone_name)
+                ).date()
+            except (TypeError, ValueError, OSError):
+                continue
+            return closed.isoformat()
+
+        for key in ("completed_on", "completed_date", "completion_date"):
+            parsed = self._parse_deadline_date(str(task.get(key) or ""))
+            if parsed:
+                return parsed.isoformat()
+        return ""
 
     # Portal statuses from Zoho Projects (open board); closed → Completed.
     _STATUS_ALIASES = {
