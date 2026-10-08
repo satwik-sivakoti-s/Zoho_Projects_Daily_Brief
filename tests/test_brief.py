@@ -197,6 +197,17 @@ def test_all_statuses_shown_including_completed() -> None:
     assert "· On Hold" in preview
 
 
+def test_reads_zoho_completed_time() -> None:
+    closed = _client()._format_completed_on(
+        {
+            "completed_time": "10-03-2026",
+            "completed_time_long": 1791014476476,
+            "completed_time_format": "10-03-2026 01:31:16 PM",
+        }
+    )
+    assert closed == "2026-10-03"
+
+
 def test_hide_completed_closed_more_than_two_days_ago() -> None:
     tasks = [
         TaskRow("Alice", "Today", "2026-10-01", "Completed", "App", "L", completed_on="2026-10-05"),

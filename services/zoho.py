@@ -259,7 +259,11 @@ class ZohoProjectsClient:
 
     def _format_completed_on(self, task: dict[str, Any]) -> str:
         """Date the task was marked Closed/Completed, in BRIEF_TIMEZONE."""
-        for key in ("completed_on_long", "completion_date_long"):
+        for key in (
+            "completed_time_long",
+            "completed_on_long",
+            "completion_date_long",
+        ):
             raw = task.get(key)
             if not raw:
                 continue
@@ -271,7 +275,13 @@ class ZohoProjectsClient:
                 continue
             return closed.isoformat()
 
-        for key in ("completed_on", "completed_date", "completion_date"):
+        for key in (
+            "completed_time",
+            "completed_time_format",
+            "completed_on",
+            "completed_date",
+            "completion_date",
+        ):
             parsed = self._parse_deadline_date(str(task.get(key) or ""))
             if parsed:
                 return parsed.isoformat()
